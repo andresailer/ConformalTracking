@@ -2451,8 +2451,11 @@ void ConformalTracking::getLowestChi2(UniqueKDTracks& finalTracks, UniqueKDTrack
 void ConformalTracking::updateCell(SCell const& cell) {
   if (cell->getTo().size() != 0) {
     for (unsigned int i = 0; i < cell->getTo().size(); i++) {
-      SCell(cell->getTo()[i])->update(cell);
-      updateCell(SCell(cell->getTo()[i]));
+      auto cellTo = SCell(cell->getTo()[i]);
+      if(cellTo->update(cell)) {
+        // if the cell itself is not updated, we don't have to update the to's
+        updateCell(cellTo);
+      }
     }
   }
 }

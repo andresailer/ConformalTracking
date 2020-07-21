@@ -76,9 +76,12 @@ public:
   SKDCluster const& getEnd() const { return m_end; }
 
   // Increment the cell weight (usually if the chain length is extended upstream of this cell)
-  void update(SCell const& cell2) {
-    if ((cell2->getWeight() + 1) > m_weight)
+  bool update(SCell const& cell2) {
+    if ((cell2->getWeight() + 1) > m_weight) {
       m_weight = cell2->getWeight() + 1;
+      return true;
+    }
+    return false;
   }
 
   // The cell has a memory of all cells that connect to it, and all cells that it connects to. If several cells point to this
