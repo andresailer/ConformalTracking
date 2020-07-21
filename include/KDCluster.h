@@ -226,6 +226,19 @@ private:
   bool   m_used      = false;
   bool   m_endcap    = false;
   bool   m_forward   = false;
+
+public:
+  void recalc() {
+    // Calculate conformal position in cartesian co-ordinates
+    const double radius2Inv =  m_u * m_u + m_v * m_v;
+    const double radius2    = 1.0 / radius2Inv;
+    const double radius     = sqrt(radius2);
+    m_r      = 1. / radius;
+    m_theta  = atan2(m_v, m_u) + M_PI;
+    m_radius = radius;
+    m_x = m_u * radius2;
+    m_y = m_v * radius2;
+  }
 };
 
 // Vector of kd clusters
