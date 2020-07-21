@@ -973,9 +973,12 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
     }
 
     // Debug: Plot residuals between hit and associated SimTrackerHit
-    streamlog_out(DEBUG7) << "SimHit : [x,y,z] = [" << kdSimHits[kdhit]->getPosition()[0] << ", "
-                          << kdSimHits[kdhit]->getPosition()[1] << ", " << kdSimHits[kdhit]->getPosition()[2] << "] "
-                          << std::endl;
+    if(not kdSimHits.empty()) {
+      streamlog_out(DEBUG7) << "SimHit : [x,y,z] = [" << kdSimHits[kdhit]->getPosition()[0] << ", "
+                            << kdSimHits[kdhit]->getPosition()[1] << ", " << kdSimHits[kdhit]->getPosition()[2] << "] "
+                            << std::endl;
+    }
+
     //      if(kdhit->getR() < 0.003) break; // new cut - once we get to inner radius we will never make tracks. temp? TODO: make parameter? FCC (0.005 to 0.003)
 
     // The tracking differentiates between the first and all subsequent hits on a chain.
