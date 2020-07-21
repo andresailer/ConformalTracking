@@ -99,6 +99,43 @@ public:
     return doca;
   }
 
+public:
+  friend std::ostream& operator<<(std::ostream &os, Cell const& cell) {
+    os << "Cell " << &cell
+       << " weight " << std::setw(4) << cell.m_weight
+       << " gradient " << std::setw(13) << cell.m_gradient
+       << " gradientRZ " << std::setw(13) << cell.m_gradientRZ
+       << "  nFrom " << std::setw(5) << cell.m_from.size()
+       << "  nTo " << std::setw(5) << cell.m_to.size()
+       << std::endl
+       << std::setw(13) << "     "
+       << std::setw(13) << "  Start   "
+       << std::setw(13) << "  End     "
+       << std::setw(13) << "  E - S  "
+       << std::setw(13) << "     "
+       << std::setw(13) << "  Start   "
+       << std::setw(13) << "  End     "
+       << std::setw(13) << "  E - S  "
+       << std::setw(13) << "     "
+       << std::setw(13) << "  Start   "
+       << std::setw(13) << "  End     "
+       << std::setw(13) << "  E - S  "
+       << std::endl
+       << std::setw(13) << "  U   "
+       << std::setw(13) << cell.getStart()->getU()
+       << std::setw(13) << cell.getEnd()->getU()
+       << std::setw(13) << cell.getEnd()->getU() - cell.getStart()->getU()
+       << std::setw(13) << "  V   "
+       << std::setw(13) << cell.getStart()->getV()
+       << std::setw(13) << cell.getEnd()->getV()
+       << std::setw(13) << cell.getEnd()->getV() - cell.getStart()->getV()
+       << std::setw(13) << "  R   "
+       << std::setw(13) << cell.getStart()->getR()
+       << std::setw(13) << cell.getEnd()->getR()
+       << std::setw(13) << cell.getEnd()->getR() - cell.getStart()->getR();
+    return os;
+  }
+
 private:
   // Each cell contains a weight, a gradient, two hits which it connects
   // and a list of cells that it connects to or from
