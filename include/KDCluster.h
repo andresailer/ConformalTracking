@@ -115,14 +115,13 @@ public:
   }
 
   friend std::ostream& operator<<(std::ostream &os, KDCluster const& clu) {
-    os << "-- Hit " << &clu
-       << ": [x,y,z] = ["
+    os << "Cluster " << &clu << std::endl
+       << "[x,y,z] = ["
        << std::setw(13) << clu.getX()
        << "," << std::setw(13) << clu.getY()
        << "," << std::setw(13) << clu.getZ()
        << "]"
-       << std::endl
-       << ": [u,v] = ["
+       << "  [u,v] = ["
        << std::setw(13) << clu.getU()
        << "," << std::setw(13) << clu.getV()
        << "]"
