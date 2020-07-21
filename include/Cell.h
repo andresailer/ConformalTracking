@@ -40,7 +40,9 @@ public:
         m_end(hit2) {}
 
   // Destructor
-  ~Cell() {}
+  ~Cell() {
+    std::cout << "Update counter " << updateCounter  << std::endl;
+  }
 
   // Weight of the cell (first cell in a chain has weight 0, and each subsequent link has weight +1)
   int  getWeight() const { return m_weight; }
@@ -77,6 +79,7 @@ public:
 
   // Increment the cell weight (usually if the chain length is extended upstream of this cell)
   bool update(SCell const& cell2) {
+    updateCounter++;
     if ((cell2->getWeight() + 1) > m_weight) {
       m_weight = cell2->getWeight() + 1;
       return true;
@@ -150,6 +153,8 @@ private:
   WeakCells        m_from{};
   std::vector<int> m_weights{};
   WeakCells        m_to{};
+public:
+  static int updateCounter;
 };
 
 using SCell                = Cell::SCell;
