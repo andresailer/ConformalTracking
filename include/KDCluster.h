@@ -6,6 +6,8 @@
 #include <cmath>
 #include <memory>
 #include <vector>
+#include <iostream>
+#include <iomanip>
 
 // ------------------------------------------------------------------------------------
 // The KDCluster class is a simple hit class used in the Cellular Automaton tracking.
@@ -110,6 +112,24 @@ public:
       m_errorX = m_error * sinTheta;
       m_errorY = m_error * cosTheta;
     }
+  }
+
+  friend std::ostream& operator<<(std::ostream &os, KDCluster const& clu) {
+    os << "-- Hit " << clu
+       << ": [x,y,z] = ["
+       << std::setw(13) << clu.getX()
+       << "," << std::setw(13) << clu.getY()
+       << "," << std::setw(13) << clu.getZ()
+       << "]"
+       << std::endl
+       << ": [u,v] = ["
+       << std::setw(13) << clu.getU()
+       << "," << std::setw(13) << clu.getV()
+       << "]"
+       << std::endl
+       << " CT Rad " << std::setw(13) << clu.getR()
+       << " Radius " << std::setw(13) << clu.getRadius();
+    return os;
   }
 
   // Destructor
