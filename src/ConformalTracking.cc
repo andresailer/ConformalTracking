@@ -1633,6 +1633,20 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
       }
       streamlog_out(DEBUG8) << "- Found " << results.size() << " neighbours from cell extrapolation " << std::endl;
 
+      std::map<int, SharedKDClusters> perLayer;
+      for (unsigned int neighbour = 0; neighbour < results.size(); neighbour++) {
+        auto const hitLayer = hit->getLayer();
+        // Get the neighbouring hit
+        SKDCluster const& nhit = results[neighbour];
+        // diff should only go one way
+        auto diff = abs(nhit->getLayer() - hitLayer);
+        perLayer[diff].push_back(nhit);
+      }
+      for (auto const& perLayerP: perLayer) {
+        results = perLayerP.second;
+        break;
+      }
+
       // Make new cells pointing inwards
       for (unsigned int neighbour = 0; neighbour < results.size(); neighbour++) {
         // Get the neighbouring hit
