@@ -116,17 +116,17 @@ public:
 
   friend std::ostream& operator<<(std::ostream &os, KDCluster const& clu) {
     os << "Cluster " << &clu << std::endl
-       << "[x,y,z] = ["
+       << "   [x,y,z] = ["
        << std::setw(13) << clu.getX()
        << "," << std::setw(13) << clu.getY()
        << "," << std::setw(13) << clu.getZ()
        << "]"
-       << "  [u,v] = ["
+       << "   [u,v] = ["
        << std::setw(13) << clu.getU()
        << "," << std::setw(13) << clu.getV()
        << "]"
        << std::endl
-       << " CT Rad " << std::setw(13) << clu.getR()
+       << "   CT Rad " << std::setw(13) << clu.getR()
        << " Radius " << std::setw(13) << clu.getRadius()
        << " Layer " <<  std::setw(5) << clu.getLayer()
       ;
