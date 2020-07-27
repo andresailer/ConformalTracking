@@ -401,7 +401,7 @@ void ConformalTracking::processEvent(LCEvent* evt) {
 
   // Create the conformal hit collections for each tracker hit collection (and save the link)
 
-  streamlog_out(DEBUG9) << std::setw(5) << "Hit"
+  streamlog_out(DEBUG9) << std::setw(5) << "Hit  "
                         << std::setw(5) << "Layer"
                         << std::setw(13) << "  U     "
                         << std::setw(13) << "  V     "
@@ -621,8 +621,10 @@ void ConformalTracking::processEvent(LCEvent* evt) {
         streamlog_out(DEBUG9) << "- Track " << &confTrack << " has " << confTrack->m_clusters.size() << " hits" << std::endl;
         for (unsigned int ht = 0; ht < confTrack->m_clusters.size(); ht++) {
           SKDCluster const& kdhit = confTrack->m_clusters.at(ht);
-          streamlog_out(DEBUG9) << "-- Hit " << ht << ": [x,y,z] = [" << kdhit->getX() << ", " << kdhit->getY() << ", "
-                                << kdhit->getZ() << "]" << std::endl;
+          streamlog_out(DEBUG9) << "-- Hit " << ht << ": [x,y,z,L] = [" << kdhit->getX() << ", " << kdhit->getY()
+                                << ", " << kdhit->getZ()
+                                << ", " << kdhit->getLayer()
+                                << "]" << std::endl;
         }
       }
     }
@@ -1051,9 +1053,7 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
     for (unsigned int neighbour = 0; neighbour < results.size(); neighbour++) {
       // Get the neighbouring hit
       SKDCluster const& nhit = results[neighbour];
-
-      streamlog_out(DEBUG7) << "- Neighbour " << neighbour << ": [x,y,z] = [" << nhit->getX() << ", " << nhit->getY() << ", "
-                            << nhit->getZ() << "]" << std::endl;
+      streamlog_out(DEBUG7) << "- Neighbour " << neighbour << " " << *nhit << std::endl;
 
       if (!neighbourIsCompatible(nhit, kdhit, parameters._maxSlopeZ)) {
         continue;
@@ -1116,8 +1116,9 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
       //        continue;
       //      }
 
-      streamlog_out(DEBUG7) << "- made cell between A ([x,y] = [" << kdhit->getX() << ", " << kdhit->getY()
-                            << "]) and B ([x,y] = [" << nhit->getX() << ", " << nhit->getY() << "])" << std::endl;
+      streamlog_out(DEBUG7) << "- made cell between A " << *kdhit
+                            << "\n and B " << *nhit
+                            << std::endl;
       if (debugSeed && kdhit == debugSeed)
         streamlog_out(DEBUG7) << "- made cell with neighbour " << neighbour << " at " << nhit->getU() << "," << nhit->getV()
                               << std::endl;
@@ -1182,9 +1183,9 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
 
     int nCells = cells.size();
     for (int itCell = 0; itCell < nCells; itCell++) {
-      streamlog_out(DEBUG7) << "- Cell " << itCell << " between A ([x,y] = [" << cells[itCell]->getStart()->getX() << ", "
-                            << cells[itCell]->getStart()->getY() << "]) and B ([x,y] = [" << cells[itCell]->getEnd()->getX()
-                            << ", " << cells[itCell]->getEnd()->getY() << "]) has weight " << cells[itCell]->getWeight()
+      streamlog_out(DEBUG7) << "- Cell " << itCell << " between A " << *(cells[itCell]->getStart())
+                            << "\n and B " << cells[itCell]->getEnd()
+                            << "\n has weight " << cells[itCell]->getWeight()
                             << std::endl;
       // Check if this cell has already been used
       if (debugSeed && kdhit == debugSeed)
@@ -1601,7 +1602,7 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
     streamlog_out(DEBUG8) << "Depth = " << depth << std::endl;
 
     for (unsigned int itCell = startPos; itCell < nCells; itCell++) {
-      streamlog_out(DEBUG8) << "- Extend cell " << cells[itCell] << std::endl;
+      streamlog_out(DEBUG8) << "- Extend cell " << *(cells[itCell]) << std::endl;
       // Get the end point of the cell (to search for neighbouring hits to form new cells connected to this one)
       SKDCluster const& hit            = cells[itCell]->getEnd();
       double            searchDistance = parameters._maxDistance;  //hit->getR();
@@ -1611,7 +1612,7 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
       // Extrapolate along the cell and then make a 2D nearest neighbour search at this extrapolated point
       SKDCluster const& fakeHit =
           extrapolateCell(cells[itCell], searchDistance / 2.);  // TODO: make this search a function of radius
-      streamlog_out(DEBUG7) << "Extrapolated hit" << *fakeHit << std::endl;
+      streamlog_out(DEBUG7) << "Extrapolated hit " << *fakeHit << std::endl;
 
       SharedKDClusters results;
       nearestNeighbours->allNeighboursInRadius(
@@ -1627,21 +1628,18 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
             return false;
           });
 
-      streamlog_out(DEBUG8) << "- Found " << results.size() << " neighbours from cell extrapolation " << std::endl;
       if (extendingTrack) {
-        streamlog_out(DEBUG7) << "Extrapolating cell " << itCell << " from u,v: " << hit->getU() << "," << hit->getV()
-                              << std::endl;
-        streamlog_out(DEBUG7) << "Extrapolated hit at u,v: " << fakeHit->getU() << "," << fakeHit->getV() << std::endl;
-        streamlog_out(DEBUG7) << "Found " << results.size() << " neighbours from cell extrapolation" << std::endl;
+        streamlog_out(DEBUG7) << "Extrapolating cell " << itCell << " from " << *hit << std::endl;
       }
+      streamlog_out(DEBUG8) << "- Found " << results.size() << " neighbours from cell extrapolation " << std::endl;
 
       // Make new cells pointing inwards
       for (unsigned int neighbour = 0; neighbour < results.size(); neighbour++) {
         // Get the neighbouring hit
         SKDCluster const& nhit = results[neighbour];
-        streamlog_out(DEBUG8) << "-- Neighbour " << *nhit << std::endl;
+        streamlog_out(DEBUG8) << "-- Neighbour " << nhit << std::endl;
         if (extendingTrack)
-          streamlog_out(DEBUG7) << "looking at neighbour " << *nhit << std::endl;
+          streamlog_out(DEBUG7) << *nhit << std::endl;
         // Check that it is not used, is not on the same detector layer, points inwards and has real z pointing away from IP
         //        if(used.count(nhit)){if(extendingTrack)streamlog_out(DEBUG7)<<"- used"<<std::endl; continue;}
 
@@ -1681,7 +1679,9 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
                 continue;
               }
               // Otherwise add the path
-        std::cout <<  cells[itCell]  << "      " << existingCell  << std::endl;
+              streamlog_out(DEBUG8) << "add new cell " << cells[itCell] 
+                                    << " to cell " << existingCell
+                                    << std::endl;
               cells[itCell]->setTo(existingCell);
               existingCell->setFrom(cells[itCell]);
               updateCell(existingCell);
@@ -1708,7 +1708,7 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
           //            drawline(hit,nhit,cells[itCell]->getWeight()+2,3);
           //          }
 
-          std::cout << std::boolalpha
+          streamlog_out(DEBUG7) << "cell angle? " << std::boolalpha
             << cells[itCell]->getAngle(cell) << "  ?>? " <<  parameters._maxCellAngle
             << " = " << (cells[itCell]->getAngle(cell) > parameters._maxCellAngle)
             << " ||   " << cells[itCell]->getAngleRZ(cell) << "  ? > ? " <<  parameters._maxCellAngleRZ
@@ -1945,9 +1945,7 @@ void ConformalTracking::extendTracksPerLayer(UniqueKDTracks& conformalTracks, Sh
       streamlog_out(DEBUG9) << "- Found " << results.size() << " neighbours. " << std::endl;
       if (streamlog_level(DEBUG9)) {
         for (auto const& neighbour : results) {
-          streamlog_out(DEBUG9) << "-- Neighbour from allNeighboursInTheta : [x,y] = [" << neighbour->getX() << ", "
-                                << neighbour->getY() << "]; r = " << neighbour->getR() << "; [subdet,layer] = ["
-                                << neighbour->getSubdetector() << ", " << neighbour->getLayer() << "]" << std::endl;
+          streamlog_out(DEBUG9) << "-- Neighbour from allNeighboursInTheta " << neighbour << std::endl;
         }
       }
 
@@ -2438,7 +2436,7 @@ void ConformalTracking::getLowestChi2(UniqueKDTracks& finalTracks, UniqueKDTrack
     for (auto& itTrk : finalTracks) {
       streamlog_out(DEBUG8) << "- Track " << itTrk.get() << " has " << itTrk->m_clusters.size() << " hits" << std::endl;
       for (unsigned int cluster = 0; cluster < itTrk->m_clusters.size(); cluster++) {
-        streamlog_out(DEBUG8) << itTrk->m_clusters.at(cluster) << std::endl;
+        streamlog_out(DEBUG8) << *(itTrk->m_clusters.at(cluster)) << std::endl;
       }
     }
   }
@@ -2479,8 +2477,6 @@ SKDCluster ConformalTracking::extrapolateCell(SCell const& cell, double distance
   extrapolatedCluster->setU(cell->getEnd()->getU() + deltaU);
   extrapolatedCluster->setV(cell->getEnd()->getV() + deltaV);
   extrapolatedCluster->recalc();
-
-  std::cout << cell << std::endl;
 
   return extrapolatedCluster;
 }
