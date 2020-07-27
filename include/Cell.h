@@ -41,7 +41,7 @@ public:
 
   // Destructor
   ~Cell() {
-    std::cout << "Update counter " << updateCounter  << std::endl;
+    //std::cout << "Update counter " << updateCounter  << std::endl;
   }
 
   // Weight of the cell (first cell in a chain has weight 0, and each subsequent link has weight +1)
