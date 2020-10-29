@@ -129,6 +129,7 @@ public:
        << "   CT Rad " << std::setw(13) << clu.getR()
        << " Radius " << std::setw(13) << clu.getRadius()
        << " Layer " <<  std::setw(5) << clu.getLayer()
+       << " subdet " <<  std::setw(5) << clu.getSubdetector()
       ;
     return os;
   }
@@ -196,6 +197,14 @@ public:
   bool sameSensor(std::shared_ptr<KDCluster> const& kdhit) const {
     return kdhit->getLayer() == m_layer && kdhit->getSubdetector() == m_subdet && kdhit->getSide() == m_side &&
            kdhit->getModule() == m_module && kdhit->getSensor() == m_sensor;
+  }
+
+  /// calculate euclidean distance to another hit
+  double distance(std::shared_ptr<KDCluster> const& kdhit) const {
+    const double xdiff = m_x - kdhit->getX();
+    const double ydiff = m_y - kdhit->getY();
+    const double zdiff = m_z - kdhit->getZ();
+    return sqrt(xdiff*xdiff+ydiff*ydiff+zdiff*zdiff);
   }
 
 private:

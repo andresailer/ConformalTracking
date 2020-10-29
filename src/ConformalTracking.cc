@@ -1184,7 +1184,7 @@ void ConformalTracking::buildNewTracks(UniqueKDTracks& conformalTracks, SharedKD
     int nCells = cells.size();
     for (int itCell = 0; itCell < nCells; itCell++) {
       streamlog_out(DEBUG7) << "- Cell " << itCell << " between A " << *(cells[itCell]->getStart())
-                            << "\n and B " << cells[itCell]->getEnd()
+                            << "\n and B " << *(cells[itCell]->getEnd())
                             << "\n has weight " << cells[itCell]->getWeight()
                             << std::endl;
       // Check if this cell has already been used
@@ -1604,19 +1604,129 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
     for (unsigned int itCell = startPos; itCell < nCells; itCell++) {
       streamlog_out(DEBUG8) << "- Extend cell " << *(cells[itCell]) << std::endl;
       // Get the end point of the cell (to search for neighbouring hits to form new cells connected to this one)
-      SKDCluster const& hit            = cells[itCell]->getEnd();
-      double            searchDistance = parameters._maxDistance;  //hit->getR();
-      if (searchDistance > hit->getR())
-        searchDistance = 1.2 * hit->getR();
+      auto const& thisCell  = cells[itCell];
+      SKDCluster const& hit = cells[itCell]->getEnd();
 
-      // Extrapolate along the cell and then make a 2D nearest neighbour search at this extrapolated point
-      SKDCluster const& fakeHit =
-          extrapolateCell(cells[itCell], searchDistance / 2.);  // TODO: make this search a function of radius
-      streamlog_out(DEBUG7) << "Extrapolated hit " << *fakeHit << std::endl;
+      SharedKDClusters resultsOrg;
 
+      const double searchDistanceOrg = parameters._maxDistance > hit->getR() ?
+        1.2 * hit->getR():
+        parameters._maxDistance;  //hit->getR();
+
+      SKDCluster const& fakeHitOrg = extrapolateCell(cells[itCell], searchDistanceOrg / 2.0);
+      nearestNeighbours->allNeighboursInRadius(fakeHitOrg,
+                                               0.625 * searchDistanceOrg,
+                                               resultsOrg,
+                                               [&hit, vertexToTracker](SKDCluster const& nhit) {
+                                                 if (nhit->used())
+                                                   return true;
+                                                 if (hit->sameLayer(nhit))
+                                                   return true;
+                                                 if (nhit->endcap() && hit->endcap() && (nhit->forward() != hit->forward()))
+                                                   return true;
+                                                 if ((vertexToTracker && nhit->getR() >= hit->getR()) || (!vertexToTracker && nhit->getR() <= hit->getR()))
+                                                   return true;
+                                                 return false;
+                                               });
+
+
+      int acceptanceCounterOrg = 0;
+      for (unsigned int neighbour = 0; neighbour < resultsOrg.size(); neighbour++) {
+        // Get the neighbouring hit
+        SKDCluster const& nhit = resultsOrg[neighbour];
+        streamlog_out(DEBUG8) << "-- Neighbour " << *nhit << std::endl;
+        // if (extendingTrack)
+        //   streamlog_out(DEBUG7) << *nhit << std::endl;
+        // Check that it is not used, is not on the same detector layer, points inwards and has real z pointing away from IP
+        //        if(used.count(nhit)){if(extendingTrack)streamlog_out(DEBUG7)<<"- used"<<std::endl; continue;}
+
+        if (nhit->used()) {
+          streamlog_out(DEBUG8) << "-- used" << std::endl;
+          continue;
+        }
+        // if (hit->sameLayer(nhit)) {
+        //   if (extendingTrack)
+        //     streamlog_out(DEBUG7) << "- same layer" << std::endl;
+        //   continue;
+        // }
+        // if (nhit->endcap() && hit->endcap() && (nhit->forward() != hit->forward()))
+        //   continue;
+        // if ((vertexToTracker && nhit->getR() >= hit->getR()) || (!vertexToTracker && nhit->getR() <= hit->getR())) {
+        //   if (extendingTrack)
+        //     streamlog_out(DEBUG7) << "- " << (vertexToTracker ? "higher radius" : "lower radius") << std::endl;
+        //   continue;
+        // }
+
+        // Check if this cell already exists (rejoining branch) FIXME - allows rejoining a branch without checking cell angles
+        auto const& existingCellsForHit = existingCells.find(hit);
+        if (existingCellsForHit != existingCells.end()) {
+          bool alreadyExists = false;
+          for (auto const& existingCell : existingCellsForHit->second) {
+            if (existingCell->getEnd() == nhit) {
+              streamlog_out(DEBUG8) << "-- cell A ([x,y] = [" << hit->getX() << ", " << hit->getY() << "]) - B ([x,y] = ["
+                                    << nhit->getX() << ", " << nhit->getY() << "]) already exists" << std::endl;
+              alreadyExists = true;
+
+              // Check if cell angle is too large to rejoin
+              if (cells[itCell]->getAngle(existingCell) > parameters._maxCellAngle ||
+
+                  cells[itCell]->getAngleRZ(existingCell) > parameters._maxCellAngleRZ) {
+                streamlog_out(DEBUG8) << "-- cell A ([x,y] = [" << hit->getX() << ", " << hit->getY() << "]) - B ([x,y] = ["
+                                      << nhit->getX() << ", " << nhit->getY() << "]) angle too large" << std::endl;
+                continue;
+              }
+            }
+          }
+          if (alreadyExists) {
+            continue;
+          }
+        }
+
+        // Make the new cell
+        Cell cell(hit, nhit);
+
+        streamlog_out(DEBUG8) << "-- made new cell " << cell << std::endl;
+        if (extendingTrack)
+          streamlog_out(DEBUG7) << "- make new cell" << std::endl;
+
+        // Check if the new cell is compatible with the previous cell (angle between the two is acceptable)
+        //        if( cells[itCell]->getAngle(cell) > (parameters._maxCellAngle*exp(-0.001/nhit->getR())) ){
+        if (cells[itCell]->getAngle(cell) > parameters._maxCellAngle ||
+            cells[itCell]->getAngleRZ(cell) > parameters._maxCellAngleRZ) {
+          continue;
+        }
+
+        streamlog_out(DEBUG8) << "+++ cell angle OK. Accepted! " << std::endl;
+        acceptanceCounterOrg += 1;
+      }
+      
+      streamlog_out(DEBUG9) << "- Found " << resultsOrg.size() << " neighbours from cell extrapolation "
+                            << " for original search with " << searchDistanceOrg / 2.0
+                            << " and " << 0.625 * searchDistanceOrg
+                            << " would have accepted " << acceptanceCounterOrg
+                            << std::endl;
       SharedKDClusters results;
-      nearestNeighbours->allNeighboursInRadius(
-          fakeHit, 0.625 * searchDistance, results, [&hit, vertexToTracker](SKDCluster const& nhit) {
+      double extrapolateStep = 1.0/360.0 * 2.0 * M_PI * thisCell->getEnd()->getR();
+      if(std::isinf(extrapolateStep)) {
+        throw std::runtime_error("extraStep is inf");
+      }
+      while (results.size() == 0) {//need a different abort condition
+
+        // Extrapolate along the cell and then make a 2D nearest neighbour search at this extrapolated point
+        SKDCluster const& fakeHit = extrapolateCell(cells[itCell], extrapolateStep);
+        streamlog_out(DEBUG7) << "Extrapolated hit " << *fakeHit << std::endl;
+        if(fakeHit->getR() > 1) {
+          break;
+        }
+
+        //a small fraction of the circumference around which we search
+        const double searchDistance = 1.0/360.0 * 2.0 * M_PI * fakeHit->getR();
+        extrapolateStep += searchDistance;
+        if(std::isinf(extrapolateStep)) {
+          throw std::runtime_error("extraStep is inf");
+        }
+        nearestNeighbours->allNeighboursInRadius(
+          fakeHit, searchDistance, results, [&hit, vertexToTracker](SKDCluster const& nhit) {
             if (nhit->used())
               return true;
             if (hit->sameLayer(nhit))
@@ -1628,32 +1738,61 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
             return false;
           });
 
+      if(results.size() > 0)
+        streamlog_out(DEBUG9) << "- Found " << results.size() << " neighbours from cell extrapolation "
+                              << " for " << extrapolateStep << " and " << searchDistance
+                              << std::endl;
+
+      }//while looking for hits
+      
       if (extendingTrack) {
         streamlog_out(DEBUG7) << "Extrapolating cell " << itCell << " from " << *hit << std::endl;
       }
-      streamlog_out(DEBUG8) << "- Found " << results.size() << " neighbours from cell extrapolation " << std::endl;
 
-      std::map<int, SharedKDClusters> perLayer;
-      for (unsigned int neighbour = 0; neighbour < results.size(); neighbour++) {
-        auto const hitLayer = hit->getLayer();
-        // Get the neighbouring hit
-        SKDCluster const& nhit = results[neighbour];
-        // diff should only go one way
-        auto diff = abs(nhit->getLayer() - hitLayer);
-        perLayer[diff].push_back(nhit);
-      }
-      for (auto const& perLayerP: perLayer) {
-        results = perLayerP.second;
-        break;
-      }
+      // std::map<int, SharedKDClusters> perLayer;
+      // std::map<int, double> distance;
+      // for (unsigned int neighbour = 0; neighbour < results.size(); neighbour++) {
+      //   auto const hitLayer = hit->getLayer();
+      //   // Get the neighbouring hit
+      //   SKDCluster const& nhit = results[neighbour];
+      //   // diff should only go one way
+      //   auto diff = abs(nhit->getLayer() - hitLayer);
+      //   // if(diff == 0) {
+      //   //   std::cout << "Diff 0 " << *hit << "\n"
+      //   //             << *nhit
+      //   //             << std::endl;
+      //   // }
+      //   perLayer[diff].push_back(nhit);
+      //   distance[diff] += hit->distance(nhit);
+      // }
+      // int minDiff = -1;
+      // double minDistance = 1e340;
+      // for (auto const& perLayerP: perLayer) {
+      //   const int diff = perLayerP.first;
+      //   const double averageDistance = distance[diff] / double(perLayerP.second.size());
+      //   // std::cout << "Hits with diff "
+      //   //           << perLayerP.first <<  "  " << perLayerP.second.size()
+      //   //           <<  "   " << averageDistance
+      //   //           << std::endl;
+      //   if(averageDistance < minDistance) {
+      //     minDiff = diff;
+      //     minDistance = averageDistance;
+      //   }
+      // }
+      //     //      for (auto const& perLayerP: perLayer) {
+      //     //std::cout << "Using hits with diff " << minDiff <<  "  " << std::endl;
+      //   results = perLayer[minDiff];
+      // //   break;
+      // // }
 
       // Make new cells pointing inwards
+      int acceptanceCounter = 0;
       for (unsigned int neighbour = 0; neighbour < results.size(); neighbour++) {
         // Get the neighbouring hit
         SKDCluster const& nhit = results[neighbour];
-        streamlog_out(DEBUG8) << "-- Neighbour " << nhit << std::endl;
-        if (extendingTrack)
-          streamlog_out(DEBUG7) << *nhit << std::endl;
+        streamlog_out(DEBUG8) << "-- Neighbour " << *nhit << std::endl;
+        // if (extendingTrack)
+        //   streamlog_out(DEBUG7) << *nhit << std::endl;
         // Check that it is not used, is not on the same detector layer, points inwards and has real z pointing away from IP
         //        if(used.count(nhit)){if(extendingTrack)streamlog_out(DEBUG7)<<"- used"<<std::endl; continue;}
 
@@ -1737,6 +1876,7 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
           continue;
         }
 
+        streamlog_out(DEBUG8) << "+++ cell angle OK. Accepted! " << std::endl;
         // Set the information about which cell this new cell is attached to and store it
         cells.emplace_back(std::make_shared<Cell>(std::move(cell)));
         auto const& scell = cells.back();
@@ -1749,9 +1889,11 @@ void ConformalTracking::extendSeedCells(SharedCells& cells, UKDTree& nearestNeig
         //          m_canvConformalEventDisplayAllCells->cd();
         //          drawline(hit,nhit,cells[itCell]->getWeight()+2);
         //        }
+        acceptanceCounter += 1;
       }
 
       // Finished adding new cells to this cell
+      streamlog_out(DEBUG9) << "Created new cells: " << acceptanceCounter << std::endl;
     }
 
     // All new cells added at this depth
@@ -1912,7 +2054,7 @@ void ConformalTracking::extendTracksPerLayer(UniqueKDTracks& conformalTracks, Sh
     int nclusters = track->m_clusters.size();
     streamlog_out(DEBUG9) << "Track has " << nclusters << " hits" << std::endl;
     for (int i = 0; i < nclusters; i++) {
-      streamlog_out(DEBUG9) << "- Hit " << i << ": [x,y] = [" << track->m_clusters.at(i)->getX() << ", "
+      streamlog_out(DEBUG8) << "- Hit " << i << ": [x,y] = [" << track->m_clusters.at(i)->getX() << ", "
                             << track->m_clusters.at(i)->getY() << "]" << std::endl;
     }
     auto seedCell = std::make_shared<Cell>(track->m_clusters[nclusters - 2], track->m_clusters[nclusters - 1]);

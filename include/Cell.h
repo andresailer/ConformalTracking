@@ -91,7 +91,6 @@ public:
   // cell, then the weight taken from the highest weighted of those (longest chain)
   void setFrom(SCell const& cell2) {
     m_from.push_back(WCell(cell2));
-    m_weights.push_back(cell2->getWeight());
     if ((cell2->getWeight() + 1) > m_weight)
       m_weight = cell2->getWeight() + 1;
   }
@@ -151,7 +150,6 @@ private:
   SKDCluster       m_start      = nullptr;
   SKDCluster       m_end        = nullptr;
   WeakCells        m_from{};
-  std::vector<int> m_weights{};
   WeakCells        m_to{};
 public:
   static int updateCounter;
